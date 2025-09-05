@@ -39,7 +39,7 @@
 
   // Power-up constants
   const POWERUP_SIZE = 28;
-  const POWERUP_SPAWN_CHANCE = 0.2; // chance per platform to have a power-up
+  const POWERUP_SPAWN_CHANCE = 0.05; // chance per platform to have a power-up
   const POWERUP_JUMP_VELOCITY = -21.5; // big upward boost
 
   // State
