@@ -59,6 +59,16 @@
     prevY: 0
   };
 
+  // Eye tracking config
+  const EYE_W = 12, EYE_H = 12;
+  const EYE_LEFT_CX = 8 + EYE_W / 2;               // left eye center offset in player box
+  const EYE_RIGHT_CX = (player.w) - 8 - EYE_W / 2; // right eye center offset based on current width
+  const EYE_CY = 14 + EYE_H / 2;
+  const PUPIL_MAX = 2.6; // px offset within eye
+
+  let lastPointerX = WIDTH * 0.5;
+  let lastPointerY = HEIGHT * 0.5;
+
   /** @type {Array<{x:number,y:number,w:number,h:number, vx:number, moving:boolean, el:HTMLElement, rot:number}>} */
   let platforms = [];
   /** @type {Array<{x:number,y:number,w:number,h:number, el:HTMLElement, type:string, rot:number, remove?:boolean}>} */
@@ -240,6 +250,43 @@
     }, 120);
   }
 
+  // Eye tracking helpers
+  function updateEyesFromPointer(clientX, clientY) {
+    const rect = playerEl.getBoundingClientRect();
+
+    const leftCx = rect.left + EYE_LEFT_CX;
+    const rightCx = rect.left + EYE_RIGHT_CX;
+    const cy = rect.top + EYE_CY;
+
+    // Left
+    let dx = clientX - leftCx;
+    let dy = clientY - cy;
+    const dl = Math.hypot(dx, dy) || 1;
+    const sl = Math.min(1, PUPIL_MAX / dl);
+    const ldx = dx * sl;
+    const ldy = dy * sl;
+
+    // Right
+    dx = clientX - rightCx;
+    dy = clientY - cy;
+    const dr = Math.hypot(dx, dy) || 1;
+    const sr = Math.min(1, PUPIL_MAX / dr);
+    const rdx = dx * sr;
+    const rdy = dy * sr;
+
+    playerEl.style.setProperty("--pupil-left-dx", ldx.toFixed(2) + "px");
+    playerEl.style.setProperty("--pupil-left-dy", ldy.toFixed(2) + "px");
+    playerEl.style.setProperty("--pupil-right-dx", rdx.toFixed(2) + "px");
+    playerEl.style.setProperty("--pupil-right-dy", rdy.toFixed(2) + "px");
+  }
+
+  function resetEyes() {
+    playerEl.style.setProperty("--pupil-left-dx", "0px");
+    playerEl.style.setProperty("--pupil-left-dy", "0px");
+    playerEl.style.setProperty("--pupil-right-dx", "0px");
+    playerEl.style.setProperty("--pupil-right-dy", "0px");
+  }
+
   function loop() {
     if (!running || keys.paused) {
       rafId = requestAnimationFrame(loop);
@@ -380,6 +427,7 @@
     }
 
     renderPlayer();
+    updateEyesFromPointer(lastPointerX, lastPointerY);
     rafId = requestAnimationFrame(loop);
   }
 
@@ -407,6 +455,13 @@
   // Bind events
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+  window.addEventListener("pointermove", (e) => {
+    lastPointerX = e.clientX;
+    lastPointerY = e.clientY;
+  });
+  window.addEventListener("mouseleave", resetEyes);
+  window.addEventListener("blur", resetEyes);
+
   document.addEventListener("visibilitychange", () => {
     keys.paused = document.hidden || keys.paused;
   });
