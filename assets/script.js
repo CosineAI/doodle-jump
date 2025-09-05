@@ -5,13 +5,14 @@
   const gameEl = document.getElementById("game");
   const playerEl = document.getElementById("player");
   const platformsContainer = document.getElementById("platforms");
+  const powerupsContainer = document.getElementById("powerups");
   const scoreEl = document.getElementById("score");
   const overlayEl = document.getElementById("overlay");
   const finalScoreEl = document.getElementById("final-score");
   const restartBtn = document.getElementById("restart");
   const restartBtn2 = document.getElementById("restart2");
 
-  if (!gameEl || !playerEl || !platformsContainer) {
+  if (!gameEl || !playerEl || !platformsContainer || !powerupsContainer) {
     // Page not loaded or structure changed; nothing to run.
     return;
   }
@@ -36,6 +37,11 @@
   // Prevent \"same row\" overlaps (platforms at nearly identical y).
   const ROW_SEP = 22;
 
+  // Power-up constants
+  const POWERUP_SIZE = 28;
+  const POWERUP_SPAWN_CHANCE = 0.05; // chance per platform to have a power-up
+  const POWERUP_JUMP_VELOCITY = -21.5; // big upward boost
+
   // State
   const keys = { left: false, right: false, paused: false };
   let rafId = 0;
@@ -53,8 +59,20 @@
     prevY: 0
   };
 
+  // Eye tracking config
+  const EYE_W = 12, EYE_H = 12;
+  const EYE_LEFT_CX = 8 + EYE_W / 2;               // left eye center offset in player box
+  const EYE_RIGHT_CX = (player.w) - 8 - EYE_W / 2; // right eye center offset based on current width
+  const EYE_CY = 14 + EYE_H / 2;
+  const PUPIL_MAX = 2.6; // px offset within eye
+
+  let lastPointerX = WIDTH * 0.5;
+  let lastPointerY = HEIGHT * 0.5;
+
   /** @type {Array<{x:number,y:number,w:number,h:number, vx:number, moving:boolean, el:HTMLElement, rot:number}>} */
   let platforms = [];
+  /** @type {Array<{x:number,y:number,w:number,h:number, el:HTMLElement, type:string, rot:number, remove?:boolean}>} */
+  let powerups = [];
 
   // Utilities
   const rnd = (min, max) => Math.random() * (max - min) + min;
@@ -121,14 +139,26 @@
     platformsContainer.innerHTML = "";
     platforms = [];
 
-    // Base platform near bottom
-    platforms.push(createPlatform(HEIGHT - 30));
+    // Base platform directly under the player (clamped to visible area)
+    const desiredY = Math.min(HEIGHT - 30, Math.round(player.y + player.h + 8));
+    const base = createPlatform(desiredY);
+    // Center horizontally under the player, within bounds
+    base.x = clamp(Math.round(player.x + player.w / 2 - base.w / 2), 6, WIDTH - base.w - 6);
+    // Reflect in DOM
+    base.el.style.width = base.w + "px";
+    base.el.style.setProperty("--x", base.x + "px");
+    base.el.style.setProperty("--y", base.y + "px");
+
+    platforms.push(base);
+    maybeSpawnPowerupForPlatform(base);
 
     // Fill upwards with constrained gaps and unique rows (respect MAX_GAP_Y from the current top)
     while (true) {
       const nextY = findYAboveTop();
       if (nextY <= -HEIGHT) break;
-      platforms.push(createPlatform(nextY));
+      const p = createPlatform(nextY);
+      platforms.push(p);
+      maybeSpawnPowerupForPlatform(p);
     }
   }
 
@@ -164,10 +194,12 @@
     player.vy = -6;
 
     hideOverlay();
+    resetPowerups();
     resetPlatforms();
     // Ensure player is visually reset
     renderPlayer();
     platforms.forEach(renderPlatform);
+    powerups.forEach(renderPowerup);
 
     running = true;
     rafId = requestAnimationFrame(loop);
@@ -178,6 +210,39 @@
     el.style.setProperty("--x", p.x + "px");
     el.style.setProperty("--y", p.y + "px");
     el.style.setProperty("--rot", p.rot.toFixed(2) + "deg");
+  }
+
+  // --- Power-ups ---
+  function renderPowerup(u) {
+    const el = u.el;
+    el.style.setProperty("--x", u.x + "px");
+    el.style.setProperty("--y", u.y + "px");
+    el.style.setProperty("--rot", u.rot.toFixed(2) + "deg");
+  }
+
+  function createPowerup(x, y, type = "donut") {
+    const el = document.createElement("div");
+    el.className = "powerup " + type;
+    el.style.setProperty("--x", x + "px");
+    el.style.setProperty("--y", y + "px");
+    el.style.setProperty("--rot", (rnd(-8, 8)).toFixed(2) + "deg");
+    powerupsContainer.appendChild(el);
+
+    return { x, y, w: POWERUP_SIZE, h: POWERUP_SIZE, el, type, rot: rnd(-6, 6), remove: false };
+  }
+
+  function resetPowerups() {
+    powerupsContainer.innerHTML = "";
+    powerups = [];
+  }
+
+  function maybeSpawnPowerupForPlatform(p) {
+    if (Math.random() < POWERUP_SPAWN_CHANCE) {
+      const x = clamp(rndi(p.x + 4, p.x + p.w - POWERUP_SIZE - 4), 4, WIDTH - POWERUP_SIZE - 4);
+      const y = p.y - POWERUP_SIZE - 10;
+      const u = createPowerup(x, y, "donut");
+      powerups.push(u);
+    }
   }
 
   function renderPlayer() {
@@ -191,6 +256,43 @@
     setTimeout(() => {
       p.el.classList.remove("boop");
     }, 120);
+  }
+
+  // Eye tracking helpers
+  function updateEyesFromPointer(clientX, clientY) {
+    const rect = playerEl.getBoundingClientRect();
+
+    const leftCx = rect.left + EYE_LEFT_CX;
+    const rightCx = rect.left + EYE_RIGHT_CX;
+    const cy = rect.top + EYE_CY;
+
+    // Left
+    let dx = clientX - leftCx;
+    let dy = clientY - cy;
+    const dl = Math.hypot(dx, dy) || 1;
+    const sl = Math.min(1, PUPIL_MAX / dl);
+    const ldx = dx * sl;
+    const ldy = dy * sl;
+
+    // Right
+    dx = clientX - rightCx;
+    dy = clientY - cy;
+    const dr = Math.hypot(dx, dy) || 1;
+    const sr = Math.min(1, PUPIL_MAX / dr);
+    const rdx = dx * sr;
+    const rdy = dy * sr;
+
+    playerEl.style.setProperty("--pupil-left-dx", ldx.toFixed(2) + "px");
+    playerEl.style.setProperty("--pupil-left-dy", ldy.toFixed(2) + "px");
+    playerEl.style.setProperty("--pupil-right-dx", rdx.toFixed(2) + "px");
+    playerEl.style.setProperty("--pupil-right-dy", rdy.toFixed(2) + "px");
+  }
+
+  function resetEyes() {
+    playerEl.style.setProperty("--pupil-left-dx", "0px");
+    playerEl.style.setProperty("--pupil-left-dy", "0px");
+    playerEl.style.setProperty("--pupil-right-dx", "0px");
+    playerEl.style.setProperty("--pupil-right-dy", "0px");
   }
 
   function loop() {
@@ -245,6 +347,23 @@
       }
     }
 
+    // Power-up collisions (simple AABB)
+    for (let i = 0; i < powerups.length; i++) {
+      const u = powerups[i];
+      if (u.remove) continue;
+      const overlaps =
+        player.x < u.x + u.w &&
+        player.x + player.w > u.x &&
+        player.y < u.y + u.h &&
+        player.y + player.h > u.y;
+      if (overlaps) {
+        u.remove = true;
+        if (u.el && u.el.parentNode) u.el.parentNode.removeChild(u.el);
+        // Big upward boost
+        player.vy = POWERUP_JUMP_VELOCITY;
+      }
+    }
+
     // Camera/scroll: keep the player near the upper third when moving up
     const threshold = HEIGHT * 0.35;
     if (player.y < threshold) {
@@ -253,6 +372,9 @@
 
       for (let i = 0; i < platforms.length; i++) {
         platforms[i].y += dy;
+      }
+      for (let i = 0; i < powerups.length; i++) {
+        powerups[i].y += dy;
       }
       camera += dy;
 
@@ -286,9 +408,24 @@
         p.el.className = "platform" + (p.moving ? " moving" : "");
         p.el.style.width = p.w + "px";
         p.el.style.setProperty("--sketch-rot", (rnd(-1.6, 1.6).toFixed(2) + "deg"));
+        maybeSpawnPowerupForPlatform(p);
       }
 
       renderPlatform(p);
+    }
+
+    // Update power-ups: recycle/remove and render
+    for (let i = 0; i < powerups.length; i++) {
+      const u = powerups[i];
+      if (u.y > HEIGHT + 24) {
+        u.remove = true;
+        if (u.el && u.el.parentNode) u.el.parentNode.removeChild(u.el);
+      } else if (!u.remove) {
+        renderPowerup(u);
+      }
+    }
+    if (powerups.length) {
+      powerups = powerups.filter(u => !u.remove);
     }
 
     // Game over if player falls below the bottom
@@ -298,6 +435,7 @@
     }
 
     renderPlayer();
+    updateEyesFromPointer(lastPointerX, lastPointerY);
     rafId = requestAnimationFrame(loop);
   }
 
@@ -325,6 +463,13 @@
   // Bind events
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+  window.addEventListener("pointermove", (e) => {
+    lastPointerX = e.clientX;
+    lastPointerY = e.clientY;
+  });
+  window.addEventListener("mouseleave", resetEyes);
+  window.addEventListener("blur", resetEyes);
+
   document.addEventListener("visibilitychange", () => {
     keys.paused = document.hidden || keys.paused;
   });
