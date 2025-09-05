@@ -168,7 +168,10 @@ h1 {
   border: 3px solid var(--platform-edge);
   border-radius: 10px;
   background:
-    repeating-linear-gradient(-8deg, var(--platform-fill) 0 8px, #e2f0e2 8px 16px);
+    /* paper fill with stripes */
+    repeating-linear-gradient(-8deg, var(--platform-fill) 0 8px, #e2f0e2 8px 16px),
+    /* light cross-hatch to feel sketchy */
+    repeating-linear-gradient(95deg, rgba(0,0,0,0.05) 0 2px, rgba(0,0,0,0) 2px 6px);
   box-shadow:
     0 1px 0 rgba(0,0,0,0.1),
     0 2px 0 rgba(0,0,0,0.06);
@@ -182,11 +185,32 @@ h1 {
     rotate(var(--rot))
     scaleY(var(--scaleY));
   transform-origin: center;
+  isolation: isolate; /* keep pseudo-element strokes above */
+}
+
+/* extra hand-drawn, wobbly outline strokes */
+.platform::before,
+.platform::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 3px solid var(--platform-edge);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.45;
+  transform: rotate(var(--sketch-rot, -1deg));
+}
+.platform::after {
+  inset: -6px;
+  border-width: 2px;
+  opacity: 0.18;
+  transform: rotate(calc(var(--sketch-rot, -1deg) * -0.65));
 }
 
 .platform.moving {
   background:
-    repeating-linear-gradient(-8deg, #e8f6ff 0 8px, #def0fd 8px 16px);
+    repeating-linear-gradient(-8deg, #e8f6ff 0 8px, #def0fd 8px 16px),
+    repeating-linear-gradient(95deg, rgba(0,0,0,0.05) 0 2px, rgba(0,0,0,0) 2px 6px);
   border-color: #1f4068;
 }
 

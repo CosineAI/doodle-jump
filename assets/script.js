@@ -29,7 +29,7 @@
   const PLATFORM_MIN = 60;
   const PLATFORM_MAX = 110;
   const PLATFORM_H = 14;
-  const INITIAL_SPACING = 62;
+  const INITIAL_SPACING = 92; // lowered density (bigger gaps)
 
   // State
   const keys = { left: false, right: false, paused: false };
@@ -62,6 +62,7 @@
     const moving = Math.random() < 0.23;
     const vx = moving ? (Math.random() < 0.5 ? -1 : 1) * rnd(0.6, 1.3) : 0;
     const rot = rnd(-3, 3);
+    const srot = rnd(-1.6, 1.6);
 
     const el = document.createElement("div");
     el.className = "platform" + (moving ? " moving" : "");
@@ -69,6 +70,7 @@
     el.style.setProperty("--x", x + "px");
     el.style.setProperty("--y", y + "px");
     el.style.setProperty("--rot", rot.toFixed(2) + "deg");
+    el.style.setProperty("--sketch-rot", srot.toFixed(2) + "deg");
 
     platformsContainer.appendChild(el);
 
@@ -234,7 +236,7 @@
 
       // Recycle platforms that moved below the screen
       if (p.y > HEIGHT + 24) {
-        p.y -= HEIGHT + rndi(40, 120);
+        p.y -= HEIGHT + rndi(120, 200); // larger jump upwards => fewer platforms overall
         p.w = rndi(PLATFORM_MIN, PLATFORM_MAX);
         p.x = rndi(6, WIDTH - p.w - 6);
         p.moving = Math.random() < 0.23;
@@ -242,6 +244,7 @@
         p.rot = rnd(-3, 3);
         p.el.className = "platform" + (p.moving ? " moving" : "");
         p.el.style.width = p.w + "px";
+        p.el.style.setProperty("--sketch-rot", (rnd(-1.6, 1.6).toFixed(2) + "deg"));
       }
 
       renderPlatform(p);
