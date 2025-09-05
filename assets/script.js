@@ -5,13 +5,14 @@
   const gameEl = document.getElementById("game");
   const playerEl = document.getElementById("player");
   const platformsContainer = document.getElementById("platforms");
+  const powerupsContainer = document.getElementById("powerups");
   const scoreEl = document.getElementById("score");
   const overlayEl = document.getElementById("overlay");
   const finalScoreEl = document.getElementById("final-score");
   const restartBtn = document.getElementById("restart");
   const restartBtn2 = document.getElementById("restart2");
 
-  if (!gameEl || !playerEl || !platformsContainer) {
+  if (!gameEl || !playerEl || !platformsContainer || !powerupsContainer) {
     // Page not loaded or structure changed; nothing to run.
     return;
   }
@@ -36,6 +37,11 @@
   // Prevent \"same row\" overlaps (platforms at nearly identical y).
   const ROW_SEP = 22;
 
+  // Power-up constants
+  const POWERUP_SIZE = 28;
+  const POWERUP_SPAWN_CHANCE = 0.2; // chance per platform to have a power-up
+  const POWERUP_JUMP_VELOCITY = -21.5; // big upward boost
+
   // State
   const keys = { left: false, right: false, paused: false };
   let rafId = 0;
@@ -55,6 +61,8 @@
 
   /** @type {Array<{x:number,y:number,w:number,h:number, vx:number, moving:boolean, el:HTMLElement, rot:number}>} */
   let platforms = [];
+  /** @type {Array<{x:number,y:number,w:number,h:number, el:HTMLElement, type:string, rot:number, remove?:boolean}>} */
+  let powerups = [];
 
   // Utilities
   const rnd = (min, max) => Math.random() * (max - min) + min;
@@ -122,13 +130,17 @@
     platforms = [];
 
     // Base platform near bottom
-    platforms.push(createPlatform(HEIGHT - 30));
+    const base = createPlatform(HEIGHT - 30);
+    platforms.push(base);
+    maybeSpawnPowerupForPlatform(base);
 
     // Fill upwards with constrained gaps and unique rows (respect MAX_GAP_Y from the current top)
     while (true) {
       const nextY = findYAboveTop();
       if (nextY <= -HEIGHT) break;
-      platforms.push(createPlatform(nextY));
+      const p = createPlatform(nextY);
+      platforms.push(p);
+      maybeSpawnPowerupForPlatform(p);
     }
   }
 
@@ -164,10 +176,12 @@
     player.vy = -6;
 
     hideOverlay();
+    resetPowerups();
     resetPlatforms();
     // Ensure player is visually reset
     renderPlayer();
     platforms.forEach(renderPlatform);
+    powerups.forEach(renderPowerup);
 
     running = true;
     rafId = requestAnimationFrame(loop);
@@ -178,6 +192,39 @@
     el.style.setProperty("--x", p.x + "px");
     el.style.setProperty("--y", p.y + "px");
     el.style.setProperty("--rot", p.rot.toFixed(2) + "deg");
+  }
+
+  // --- Power-ups ---
+  function renderPowerup(u) {
+    const el = u.el;
+    el.style.setProperty("--x", u.x + "px");
+    el.style.setProperty("--y", u.y + "px");
+    el.style.setProperty("--rot", u.rot.toFixed(2) + "deg");
+  }
+
+  function createPowerup(x, y, type = "donut") {
+    const el = document.createElement("div");
+    el.className = "powerup " + type;
+    el.style.setProperty("--x", x + "px");
+    el.style.setProperty("--y", y + "px");
+    el.style.setProperty("--rot", (rnd(-8, 8)).toFixed(2) + "deg");
+    powerupsContainer.appendChild(el);
+
+    return { x, y, w: POWERUP_SIZE, h: POWERUP_SIZE, el, type, rot: rnd(-6, 6), remove: false };
+  }
+
+  function resetPowerups() {
+    powerupsContainer.innerHTML = "";
+    powerups = [];
+  }
+
+  function maybeSpawnPowerupForPlatform(p) {
+    if (Math.random() < POWERUP_SPAWN_CHANCE) {
+      const x = clamp(rndi(p.x + 4, p.x + p.w - POWERUP_SIZE - 4), 4, WIDTH - POWERUP_SIZE - 4);
+      const y = p.y - POWERUP_SIZE - 10;
+      const u = createPowerup(x, y, "donut");
+      powerups.push(u);
+    }
   }
 
   function renderPlayer() {
@@ -245,6 +292,23 @@
       }
     }
 
+    // Power-up collisions (simple AABB)
+    for (let i = 0; i < powerups.length; i++) {
+      const u = powerups[i];
+      if (u.remove) continue;
+      const overlaps =
+        player.x < u.x + u.w &&
+        player.x + player.w > u.x &&
+        player.y < u.y + u.h &&
+        player.y + player.h > u.y;
+      if (overlaps) {
+        u.remove = true;
+        if (u.el && u.el.parentNode) u.el.parentNode.removeChild(u.el);
+        // Big upward boost
+        player.vy = POWERUP_JUMP_VELOCITY;
+      }
+    }
+
     // Camera/scroll: keep the player near the upper third when moving up
     const threshold = HEIGHT * 0.35;
     if (player.y < threshold) {
@@ -253,6 +317,9 @@
 
       for (let i = 0; i < platforms.length; i++) {
         platforms[i].y += dy;
+      }
+      for (let i = 0; i < powerups.length; i++) {
+        powerups[i].y += dy;
       }
       camera += dy;
 
@@ -286,9 +353,24 @@
         p.el.className = "platform" + (p.moving ? " moving" : "");
         p.el.style.width = p.w + "px";
         p.el.style.setProperty("--sketch-rot", (rnd(-1.6, 1.6).toFixed(2) + "deg"));
+        maybeSpawnPowerupForPlatform(p);
       }
 
       renderPlatform(p);
+    }
+
+    // Update power-ups: recycle/remove and render
+    for (let i = 0; i < powerups.length; i++) {
+      const u = powerups[i];
+      if (u.y > HEIGHT + 24) {
+        u.remove = true;
+        if (u.el && u.el.parentNode) u.el.parentNode.removeChild(u.el);
+      } else if (!u.remove) {
+        renderPowerup(u);
+      }
+    }
+    if (powerups.length) {
+      powerups = powerups.filter(u => !u.remove);
     }
 
     // Game over if player falls below the bottom

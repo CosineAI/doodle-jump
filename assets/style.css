@@ -328,3 +328,38 @@ h1 {
 @media (prefers-reduced-motion: reduce) {
   .btn:active { transform: none; }
 }
+
+/* ------------------------------
+   Power-ups
+   ------------------------------ */
+
+.powerups {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.powerup {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  --x: 0px;
+  --y: 0px;
+  --rot: 0deg;
+  transform: translate(var(--x), var(--y)) rotate(var(--rot));
+  transform-origin: center;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  /* crude donut: ring + a blob of pink icing */
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 0 8px, #f3c06b 9px 100%),
+    radial-gradient(110% 90% at 55% 45%, #ff9ecf 0 14px, rgba(255,158,207,0) 14px);
+  box-shadow:
+    0 1px 0 rgba(0,0,0,0.1),
+    0 2px 0 rgba(0,0,0,0.06);
+}
+
+/* layer ordering so the player is above power-ups which are above platforms */
+.platforms { z-index: 1; }
+.powerups { z-index: 2; }
+.player { z-index: 3; }
