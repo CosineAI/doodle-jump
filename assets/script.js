@@ -139,8 +139,16 @@
     platformsContainer.innerHTML = "";
     platforms = [];
 
-    // Base platform near bottom
-    const base = createPlatform(HEIGHT - 30);
+    // Base platform directly under the player (clamped to visible area)
+    const desiredY = Math.min(HEIGHT - 30, Math.round(player.y + player.h + 8));
+    const base = createPlatform(desiredY);
+    // Center horizontally under the player, within bounds
+    base.x = clamp(Math.round(player.x + player.w / 2 - base.w / 2), 6, WIDTH - base.w - 6);
+    // Reflect in DOM
+    base.el.style.width = base.w + "px";
+    base.el.style.setProperty("--x", base.x + "px");
+    base.el.style.setProperty("--y", base.y + "px");
+
     platforms.push(base);
     maybeSpawnPowerupForPlatform(base);
 
