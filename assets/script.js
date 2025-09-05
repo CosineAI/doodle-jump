@@ -29,7 +29,12 @@
   const PLATFORM_MIN = 60;
   const PLATFORM_MAX = 110;
   const PLATFORM_H = 14;
-  const INITIAL_SPACING = 92; // lowered density (bigger gaps)
+  // Control vertical spacing between platforms.
+  // Keep within player's jump capability to avoid impossible jumps.
+  const MIN_GAP_Y = 70;
+  const MAX_GAP_Y = 140;
+  // Prevent \"same row\" overlaps (platforms at nearly identical y).
+  const ROW_SEP = 22;
 
   // State
   const keys = { left: false, right: false, paused: false };
@@ -55,6 +60,41 @@
   const rnd = (min, max) => Math.random() * (max - min) + min;
   const rndi = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+  // True if no platform sits within ROW_SEP of the candidate y (ignoring one, e.g., when recycling).
+  function rowFree(y, ignore = null) {
+    for (let i = 0; i < platforms.length; i++) {
+      const p = platforms[i];
+      if (p === ignore) continue;
+      if (Math.abs(p.y - y) < ROW_SEP) return false;
+    }
+    return true;
+  }
+
+  // Pick a y above the current topmost platform, constrained by [MIN_GAP_Y, MAX_GAP_Y],
+  // and ensuring it doesn't land on an existing row.
+  function findYAboveTop(ignore = null) {
+    let minY = Infinity;
+    for (let i = 0; i < platforms.length; i++) {
+      const p = platforms[i];
+      if (p === ignore) continue;
+      if (p.y < minY) minY = p.y;
+    }
+    if (minY === Infinity) minY = HEIGHT;
+
+    // Random attempts
+    for (let t = 0; t < 24; t++) {
+      const y = minY - rndi(MIN_GAP_Y, MAX_GAP_Y);
+      if (rowFree(y, ignore)) return y;
+    }
+
+    // Fallback linear search in window
+    for (let y = minY - MIN_GAP_Y; y >= minY - MAX_GAP_Y; y--) {
+      if (rowFree(y, ignore)) return y;
+    }
+
+    return minY - MAX_GAP_Y;
+  }
 
   function createPlatform(y) {
     const w = rndi(PLATFORM_MIN, PLATFORM_MAX);
@@ -84,11 +124,11 @@
     // Base platform near bottom
     platforms.push(createPlatform(HEIGHT - 30));
 
-    // Fill upwards
-    let y = HEIGHT - 90;
-    while (y > -HEIGHT) {
-      platforms.push(createPlatform(y));
-      y -= INITIAL_SPACING;
+    // Fill upwards with constrained gaps and unique rows (respect MAX_GAP_Y from the current top)
+    while (true) {
+      const nextY = findYAboveTop();
+      if (nextY <= -HEIGHT) break;
+      platforms.push(createPlatform(nextY));
     }
   }
 
@@ -236,7 +276,8 @@
 
       // Recycle platforms that moved below the screen
       if (p.y > HEIGHT + 24) {
-        p.y -= HEIGHT + rndi(120, 200); // larger jump upwards => fewer platforms overall
+        // place above the current top platform with a safe, reachable gap
+        p.y = findYAboveTop(p);
         p.w = rndi(PLATFORM_MIN, PLATFORM_MAX);
         p.x = rndi(6, WIDTH - p.w - 6);
         p.moving = Math.random() < 0.23;
