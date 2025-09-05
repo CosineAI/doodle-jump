@@ -293,8 +293,9 @@ h1 {
 
 /* Game overlay */
 .overlay {
-  position: absolute;
+  position: fixed; /* cover the entire viewport */
   inset: 0;
+  z-index: 999; /* above platforms, powerups, and player */
   background: linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0.9));
   display: grid;
   place-items: center;
