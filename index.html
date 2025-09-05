@@ -3,13 +3,42 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>My Static Site</title>
+  <title>Crude Doodle Jump</title>
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
   <main>
-    <h1>Welcome to Your Static Site</h1>
+    <h1>Crude Doodle Jump</h1>
+
+    <section class="hud" aria-live="polite">
+      <div class="hud-left">
+        <span class="label">Score</span>
+        <span id="score" class="score">0</span>
+      </div>
+      <div class="hud-right">
+        <button id="restart" class="btn hidden" type="button" title="Restart">Restart</button>
+      </div>
+    </section>
+
+    <div id="game" class="game" role="application" aria-label="Doodle Jump clone">
+      <div id="player" class="player" aria-label="alien monster character">
+        <i class="antenna"></i>
+        <span class="mouth"></span>
+      </div>
+      <div id="platforms" class="platforms"></div>
+
+      <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="go-title">
+        <div class="panel">
+          <h2 id="go-title">Game Over</h2>
+          <p>Your score: <span id="final-score">0</span></p>
+          <button id="restart2" class="btn" type="button">Restart</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="hint">Move with ← → or A/D. Wraps at edges. Press Space to pause/resume.</p>
   </main>
+
   <footer>
     <p>&copy; 2025 Your Name</p>
   </footer>

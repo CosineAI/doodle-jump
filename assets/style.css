@@ -60,3 +60,271 @@ footer {
   }
 
 }
+
+/* ------------------------------
+   Game styles
+   ------------------------------ */
+
+:root {
+  --ink: #222;
+  --paper: #fffef8;
+  --game-w: 360px;
+  --game-h: 600px;
+  --sky-1: #cfeeff;
+  --sky-2: #f9fdff;
+  --alien: #a2ed73;
+  --alien-ink: #1d3b23;
+  --platform-fill: #e9f7e9;
+  --platform-edge: #2a2a2a;
+  --accent: #1f7aed;
+}
+
+h1 {
+  text-align: center;
+  margin: 0 0 0.8rem 0;
+  letter-spacing: 0.02em;
+}
+
+.hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: var(--game-w);
+  width: 100%;
+  margin: 0 auto 0.75rem auto;
+  padding: 0.25rem 0.25rem;
+}
+
+.label {
+  font-size: 0.9rem;
+  opacity: 0.7;
+  margin-right: 0.5rem;
+}
+
+.score {
+  display: inline-block;
+  min-width: 3ch;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.25rem;
+  padding: 0.15rem 0.5rem;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 1px 1px 0 rgba(0,0,0,0.1);
+}
+
+.btn {
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: #111;
+  padding: 0.4rem 0.8rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 1px 1px 0 rgba(0,0,0,0.1);
+}
+.btn:active { transform: translateY(1px); }
+
+.hidden { display: none !important; }
+
+.hint {
+  text-align: center;
+  opacity: 0.65;
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+}
+
+/* Game area */
+.game {
+  position: relative;
+  width: var(--game-w);
+  height: var(--game-h);
+  margin: 0 auto 1rem auto;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(150% 100% at 50% 10%, rgba(255,255,255,0.8), rgba(255,255,255,0) 50%),
+    linear-gradient(180deg, var(--sky-1), var(--sky-2));
+  box-shadow:
+    0 10px 28px rgba(0,0,0,0.1),
+    0 3px 10px rgba(0,0,0,0.06);
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.platforms {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.platform {
+  position: absolute;
+  height: 14px;
+  border: 3px solid var(--platform-edge);
+  border-radius: 10px;
+  background:
+    /* paper fill with stripes */
+    repeating-linear-gradient(-8deg, var(--platform-fill) 0 8px, #e2f0e2 8px 16px),
+    /* light cross-hatch to feel sketchy */
+    repeating-linear-gradient(95deg, rgba(0,0,0,0.05) 0 2px, rgba(0,0,0,0) 2px 6px);
+  box-shadow:
+    0 1px 0 rgba(0,0,0,0.1),
+    0 2px 0 rgba(0,0,0,0.06);
+  will-change: transform;
+  --x: 0px;
+  --y: 0px;
+  --rot: 0deg;
+  --scaleY: 1;
+  transform:
+    translate(var(--x), var(--y))
+    rotate(var(--rot))
+    scaleY(var(--scaleY));
+  transform-origin: center;
+  isolation: isolate; /* keep pseudo-element strokes above */
+}
+
+/* extra hand-drawn, wobbly outline strokes */
+.platform::before,
+.platform::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 3px solid var(--platform-edge);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.45;
+  transform: rotate(var(--sketch-rot, -1deg));
+}
+.platform::after {
+  inset: -6px;
+  border-width: 2px;
+  opacity: 0.18;
+  transform: rotate(calc(var(--sketch-rot, -1deg) * -0.65));
+}
+
+.platform.moving {
+  background:
+    repeating-linear-gradient(-8deg, #e8f6ff 0 8px, #def0fd 8px 16px),
+    repeating-linear-gradient(95deg, rgba(0,0,0,0.05) 0 2px, rgba(0,0,0,0) 2px 6px);
+  border-color: #1f4068;
+}
+
+.platform.boop {
+  --scaleY: 0.88;
+}
+
+.player {
+  position: absolute;
+  width: 46px;
+  height: 56px;
+  will-change: transform;
+  transform: translate(0, 0);
+  /* Crude alien-monster drawing via CSS */
+  background:
+    radial-gradient(55% 45% at 50% 45%, rgba(255,255,255,0.45), rgba(255,255,255,0) 60%),
+    radial-gradient(120% 120% at 50% 100%, #7fd04b 0 30%, rgba(127,208,75,0) 30% 100%),
+    var(--alien);
+  border: 3px solid var(--alien-ink);
+  border-radius: 14px 14px 18px 18px;
+  box-shadow:
+    inset 0 -3px 0 rgba(0,0,0,0.08),
+    0 2px 0 rgba(0,0,0,0.12);
+  filter:
+    drop-shadow(1px 1px 0 rgba(0,0,0,0.08));
+}
+
+/* Eyes */
+.player::before,
+.player::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  width: 12px;
+  height: 12px;
+  background:
+    radial-gradient(circle at 60% 55%, #000 0 4px, rgba(0,0,0,0) 4px),
+    #fff;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+}
+
+.player::before { left: 8px; }
+.player::after { right: 8px; }
+
+/* Crooked mouth */
+.player .mouth {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 12px;
+  height: 10px;
+  border-bottom: 3px solid var(--ink);
+  border-radius: 0 0 40% 40%;
+  transform: rotate(-6deg);
+}
+
+/* A little horn/antenna using a pseudo-stroke effect */
+.player i.antenna {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 2px;
+  height: 14px;
+  background: var(--alien-ink);
+  transform: translateX(-50%) rotate(-8deg);
+  border-radius: 2px;
+}
+.player i.antenna::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: -5px;
+  width: 12px;
+  height: 12px;
+  background: var(--alien);
+  border: 3px solid var(--alien-ink);
+  border-radius: 50%;
+}
+
+/* Game overlay */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0.9));
+  display: grid;
+  place-items: center;
+}
+.panel {
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  text-align: center;
+}
+.panel h2 {
+  margin: 0 0 0.4rem 0;
+}
+.panel p {
+  margin: 0 0 0.8rem 0;
+  font-weight: 600;
+}
+
+/* Small screens */
+@media (max-width: 420px) {
+  :root {
+    --game-w: 92vw;
+    --game-h: 74vh;
+  }
+  .hud { max-width: var(--game-w); }
+}
+
+/* Reduce motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .btn:active { transform: none; }
+}
